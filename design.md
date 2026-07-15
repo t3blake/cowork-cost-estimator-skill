@@ -251,6 +251,62 @@ labeled as customer-provided rather than assumed. This should stay an
 explicit opt-in, not a default behavior, and doesn't require shipping any
 pricing data with the skill itself.
 
+### 4.5 Cross-check against Microsoft's official Customer Cowork Estimator
+
+**Data point discovered during lab review:** Microsoft publishes its own
+"Customer Cowork Estimator" workbook (linked directly from the [usage-
+based-billing overview](https://learn.microsoft.com/en-us/microsoft-365/copilot/usage-based-billing-overview-copilot-credits)
+Learn page as `aka.ms/CustomerCoworkEstimator`), used for org-wide capacity
+planning. It defines a fixed 3-tier **per-prompt** credit rate:
+
+| Tier | Credits/prompt | Definition (Microsoft's own wording) |
+|---|---|---|
+| Light | 125 | Narrow context, lightweight model, 0–1 tool calls, minimal runtime — 0–1 deliverables |
+| Medium | 500 | Richer context, capable model, several tool calls, moderate runtime — 2+ outputs |
+| Heavy | 1200 | Broad context aggregation, high-quality model, many tool calls, sustained runtime — many outputs |
+
+Its persona-based monthly totals (e.g. "Corporate Knowledge Worker": 22
+light + 11 medium + 5 heavy prompts/month) reconcile exactly against
+`count × rate` (22×125 + 11×500 + 5×1200 = 14,250), confirming this is a
+literal, simple weighted sum — not a black box. The sheet is explicitly
+labeled illustrative, derived from Frontier-program telemetry as of a
+snapshot date, and assumes a specific model ("Anthropic Opus 4.8").
+
+**Why we are *not* adopting this as our per-task credit model:** our
+skill estimates a single upcoming task kicked off by one user message —
+which, by Microsoft's own definition, is itself "one prompt." Adopting
+the table literally would collapse our estimate into picking one of only
+three fixed numbers (125 / 500 / 1200) for the whole task — far coarser
+than the phase-based range we already produce, and it doesn't fit our own
+lab data: both observed results (**430** and **745** credits, see
+`results.md`/`results2.md`) fall strictly *between* the three fixed
+values, not on one of them. That's strong evidence that Microsoft's 3-tier
+table is a simplified **planning average** for monthly aggregate math, not
+the real per-session metering granularity — real billing clearly scales
+more continuously with actual context/tool-calls/retries, which is what
+our phase-based model (§4.1) already approximates.
+
+**How we do use it — as a sanity-check classifier, not an input to the
+number.** After computing our own low/expected/high range, silently check
+whether the task's shape (deliverable count, tool-call breadth, context
+size) suggests it sits in Microsoft's Light/Medium/Heavy territory. Only
+surface this if it's informative — e.g. our number looks implausibly low
+for a task that is clearly "many deliverables, many tool calls, sustained
+build" (Heavy by their own definition) — as a one-line qualitative caveat
+(not the literal 125/500/1200 figures, and never as a second competing
+number):
+
+> "This task's shape (multiple deliverables, several tool calls) puts it
+> in Microsoft's higher-usage tier — expect the wider end of the range
+> above, especially if any step needs rework."
+
+This preserves the whole point of the skill (task-specific, continuously-
+scaled, transparent-about-uncertainty) while still benefiting from an
+authoritative, Microsoft-sourced plausibility check. Treat the 125/500/
+1200 rates as versioned reference constants tied to a specific snapshot
+date/model — revisit if Microsoft updates the estimator or changes the
+underlying model.
+
 ## 5. Transparency Requirements
 
 The output must always include an explicit **"What this estimate can't

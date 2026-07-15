@@ -60,12 +60,21 @@ estimating. Concretely:
    Treat its output as Low confidence and say so.
 4. **Apply the credit range** (low/expected/high) from whichever path was
    used.
-5. **List 2–4 relevant "what could change this" caveats** — choose only
+5. **Sanity-check only, do not recompute.** Silently judge whether the
+   task's shape (deliverable count, tool-call breadth, context size)
+   looks like Microsoft's own Light (0–1 tool calls, 0–1 deliverables),
+   Medium (several tool calls, 2+ outputs), or Heavy (many tool calls,
+   sustained runtime, many outputs) usage tier. This is a plausibility
+   check on your own range, not a second estimate — never output the
+   125/500/1200 figures themselves. Only add a one-line caveat if your
+   computed range looks implausibly low for a task that is clearly Heavy
+   by this definition; otherwise say nothing about it.
+6. **List 2–4 relevant "what could change this" caveats** — choose only
    ones that actually apply to this task, from: unknown review/
    clarification rounds, unknown search/discovery scope, retry/failure
    loops, attachment size not yet known, model/routing changes
    mid-session.
-6. **List cost-optimization tips**, filtered through memory (step 1):
+7. **List cost-optimization tips**, filtered through memory (step 1):
    - Suggest a single M365 Copilot Chat prompt instead of a full Cowork
      session, if the task is really a one-shot question/edit.
    - Suggest GitHub Copilot (IDE/PR review) for code-specific sub-tasks,
@@ -75,7 +84,7 @@ estimating. Concretely:
    - Suggest stopping after a lower-cost phase (e.g. a plan/draft) before
      a more expensive execution phase, when the task naturally splits
      that way.
-7. **Output using the Response format below only.** No commentary before
+8. **Output using the Response format below only.** No commentary before
    or after it.
 
 ## Response format
@@ -95,6 +104,7 @@ Confidence: <Low|Medium|High>
 ### What could change this
 - <caveat 1>
 - <caveat 2>
+- <optional: one-line tier-plausibility caveat from step 5, only if it applies>
 
 ### Ways to reduce cost
 - <tip 1>
@@ -113,3 +123,9 @@ Note: `archetypes.json`'s current ranges are seed placeholders derived
 from general public estimates, not verified Microsoft data. Treat matches
 against it as Low–Medium confidence until replaced with real observed
 figures from lab testing in this tenant.
+
+Reference only (not read at runtime, not shipped as a file): Microsoft's
+own Customer Cowork Estimator uses a fixed Light=125/Medium=500/
+Heavy=1200 credits-per-prompt table for org-wide monthly capacity
+planning. Do not use these numbers as this skill's per-task output — see
+design.md §4.5 for why, and for the sanity-check-only usage in Step 5.
