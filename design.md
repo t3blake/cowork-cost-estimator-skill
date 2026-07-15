@@ -50,7 +50,7 @@ description: >
 | Repo / workspace size (file count, LOC, largest files) | Local file system scan | Optional but improves accuracy |
 | Attachments (docs, spreadsheets, images) | User-provided files | Optional |
 | Expected sub-agent / background agent use | Inferred from task complexity | Optional |
-| Prior similar sessions | `session_store_sql` history (turns, tool calls, token usage columns) | Optional, strongly improves accuracy |
+| Prior similar sessions | Only if surfaced earlier in *this* chat (e.g. a past `/cost` output) or via an admin-granted Credits API/connector; **not** natively queryable by the agent | Optional, rarely available — see §4.2 |
 | Stored memories about tool availability/licensing | Memory store (user + repo scoped) | Yes, must always be checked |
 
 ## 4. Estimation Methodology
@@ -83,14 +83,41 @@ Break the task into phases and estimate each independently, then sum:
    the "high" estimate to account for failed builds, test loops, or
    re-reading files after edits.
 
-### 4.2 Calibration from history
+### 4.2 Calibration from history — a known limitation for Cowork
 
-Where available, query past sessions with a similar task profile (same
-repo, similar task keywords, similar file counts) via `session_store_sql`
-to pull actual `usage_input_tokens` / `usage_output_tokens` and use them to
-sanity-check or replace heuristic estimates. This is the single biggest
-accuracy lever and should be preferred over pure heuristics whenever a
-reasonably similar precedent exists.
+**Important constraint discovered during design review:** unlike a coding-
+agent environment with its own queryable session-telemetry store, Cowork
+does **not** give the agent itself a native way to query the credit cost of
+its own past sessions. Credit accounting lives in the **Microsoft 365 admin
+center** (Reports → Usage → Microsoft 365 Copilot → Credits) — a tenant/
+admin-level surface, aggregated per user/day/agent, not a per-conversation
+API the running agent can call by default.
+
+Practical implication: unless a prior session explicitly captured its own
+cost into the transcript (e.g. the customer ran a `/cost`-style skill
+before and that output is still visible in chat history), there is **no
+ground-truth number to calibrate against** for "similar past tasks." The
+skill must be honest about this rather than pretending to have historical
+telemetry it doesn't have. Fallback order, most to least reliable:
+
+1. **In-transcript prior cost data** — if an earlier turn in *this same*
+   conversation already surfaced credit/token numbers (from a prior
+   `/cost` run or similar), reuse those as a real data point.
+2. **Admin-exposed credits API/connector** (if the tenant has granted the
+   skill access to one) — usable only as a coarse sanity check, since it's
+   aggregated by user/day/agent, not by individual session, so it can
+   confirm "this kind of work tends to run heavy/light" but not give an
+   exact per-task figure.
+3. **User self-reported figures** — ask the customer what similar past
+   tasks cost them per their own admin dashboard; treat this as a labeled,
+   unverified input, not a computed value.
+4. **Pure heuristic estimate** (§4.1) — the default and most common case;
+   must be clearly flagged as heuristic-only with no historical backing,
+   which should also lower the reported confidence level (§5).
+
+This replaces any assumption that the skill can silently query a session-
+usage database the way a coding-agent tool (e.g. `session_store_sql`)
+might — that pattern does not apply to Cowork today.
 
 ### 4.3 Pricing conversion
 
@@ -210,14 +237,25 @@ customer has no GitHub Copilot seats.)
   (`store_memory` / `vote_memory` equivalents) rather than building a new
   store; the skill only *reads* memories to filter suggestions and *writes*
   new ones when the customer states a constraint.
-- Historical calibration — reuse `session_store_sql` (or the
-  product's equivalent session telemetry store) to pull actual token usage
-  from comparable past sessions.
+- Historical calibration — no native session-telemetry query exists for
+  Cowork. Limit to: (a) reusing prior in-transcript `/cost` output if
+  present, (b) an optional admin-granted Credits Report connector for
+  coarse, aggregate sanity-checking only, (c) explicit user-reported
+  figures. Never assume a hidden per-session usage database is queryable.
 
 ## 10. Open Questions
 
 - Does Cowork expose per-session token/cost telemetry we can query
   programmatically for calibration, or only after-the-fact totals?
+  **(Answered, see §4.2): no per-session API today — only tenant/admin
+  aggregate Credits reporting; per-session numbers only exist if a prior
+  `/cost`-style skill already put them in the transcript.)**
+- Would it be worth building a lightweight `/cost` skill first, purely so
+  that its output persists in chat history and becomes a calibration
+  input for *this* estimator on future related tasks in the same thread?
+- If/when an admin-level Credits API connector becomes available to
+  skills, what permission model would let this skill call it safely
+  without over-scoping access to tenant-wide billing data?
 - Should the estimate be shown once at task start, or refreshed
   mid-session as scope becomes clearer?
 - Where should pricing data live so it stays current without the skill
