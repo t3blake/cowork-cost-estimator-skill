@@ -67,6 +67,14 @@
       "notes": "Highest-variance archetype; scope of sources is often unknown up front."
     },
     {
+      "id": "presentation_creation",
+      "label": "Building a new presentation/deck from scratch (custom slide design, multiple slides)",
+      "keywords": ["build a deck", "build a presentation", "create a presentation", "make slides", "powerpoint deck", "pptx", "slide deck", "design slides"],
+      "credits": { "low": 120, "expected": 320, "high": 650 },
+      "confidence": "Low",
+      "notes": "Coverage gap found in lab testing: no archetype previously existed for from-scratch deck creation, causing the model to freelance instead of doing a cheap lookup. No isolated single-deck lab data yet -- range is backed into from two lab runs of a composite task (deck + Word doc + email): 430 credits on a clean build, 745 when a rendering-library bug forced multiple retries. The deck was the dominant cost driver in both; treat the high end here as approaching the composite clean-run total, and see the multi-deliverable guidance in SKILL.md for how to combine this with other archetypes in the same request."
+    },
+    {
       "id": "bulk_or_org_wide",
       "label": "Bulk or org-wide operation (many files, many recipients, or repeated across a large set)",
       "keywords": ["all my files", "every document in", "across the org", "for every employee", "bulk"],
