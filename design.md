@@ -170,6 +170,22 @@ table over time.
    ambiguous. Always disclose which path produced the number, and flag
    the phase-based fallback's credit figure as a lower-confidence
    heuristic (§4.1) since it isn't backed by an observed credit range.
+3a. **Combining archetypes for multi-deliverable requests.** A single
+    request often spans more than one archetype (e.g. a deck + a Word
+    doc + an email). Naively taking "the high end of the closest match"
+    (the original approach) under-counts real multi-artifact cost — lab
+    testing showed a 3-artifact task landing well outside a single
+    archetype's high bound. The **primary + partial** rule instead: take
+    the highest-"expected" archetype as primary (full range), add 50% of
+    each additional *distinct* archetype's range (summed low-with-low,
+    expected-with-expected, high-with-high), reflecting that shared
+    research/setup benefits every subsequent output but each still adds
+    real generation/QA cost. Validated against lab data: deck (320) + 50%
+    doc_summary (30) + 50% communications_draft (50) = 400 expected vs.
+    430 actual on the clean run — within a few percent. Same-*type*
+    repetition (e.g. "5 similar emails") or 4+ distinct deliverables
+    amortizes further than this rule assumes, so those route to
+    `bulk_or_org_wide` instead of continued summing.
 4. **Keep updates flowing through re-share, not live editing.** When the
    `/cost` skill (§4.3) or maintainer review produces better reference
    data, update `archetypes.json` in the package and use Cowork's

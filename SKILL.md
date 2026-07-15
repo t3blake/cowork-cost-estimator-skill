@@ -45,10 +45,23 @@ estimating. Concretely:
    our tenant"). Suppress any tip that contradicts a known memory. Prefer
    a more recent explicit statement in the current conversation over an
    older stored memory if they conflict.
-2. **Classify the task.** Compare the user's request against the
-   archetypes in `archetypes.json`. Pick the closest match by keyword/
-   intent overlap. If the task spans more than one archetype, use the
-   "high" end of the closer match and say so in the basis line.
+2. **Classify the task.** Identify the distinct deliverable(s) requested,
+   then compare each against the archetypes in `archetypes.json` by
+   keyword/intent overlap.
+   - **Single deliverable:** use that archetype's range directly.
+   - **2–3 distinct different-type deliverables** (e.g. a deck + a doc +
+     an email): apply the **primary + partial** rule — take the archetype
+     with the highest "expected" credits as primary (full low/expected/
+     high), then add 50% of each additional distinct archetype's low/
+     expected/high. Sum low with low, expected with expected, high with
+     high. State each component archetype in the basis line (e.g.
+     "presentation_creation (primary) + 50% doc_summary + 50%
+     communications_draft").
+   - **Same archetype repeated many times** (e.g. "draft 5 similar
+     emails"), or **4+ distinct deliverables**: do not keep summing —
+     classify as `bulk_or_org_wide` instead, since per-item cost amortizes
+     further than the primary+50% rule assumes, and that archetype
+     already covers this shape of task.
 3. **If no confident archetype match:** run `scripts/estimate.py` with
    best-effort rough sizing inputs:
    - `--chars`: approximate character count of the task text plus any
