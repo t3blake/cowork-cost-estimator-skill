@@ -50,7 +50,7 @@ description: >
 | Repo / workspace size (file count, LOC, largest files) | Local file system scan | Optional but improves accuracy |
 | Attachments (docs, spreadsheets, images) | User-provided files | Optional |
 | Expected sub-agent / background agent use | Inferred from task complexity | Optional |
-| Prior similar sessions | Only if surfaced earlier in *this* chat (e.g. a past `/cost` output) or via an admin-granted Credits API/connector; **not** natively queryable by the agent | Optional, rarely available — see §4.2 |
+| Prior similar sessions | Only if surfaced earlier in *this* chat (e.g. a past `/cost` output) or via an admin-granted Credits API/connector; **not** natively queryable by the agent | Optional, rarely available — see §4.3 |
 | Stored memories about tool availability/licensing | Memory store (user + repo scoped) | Yes, must always be checked |
 
 ## 4. Estimation Methodology
@@ -83,7 +83,55 @@ Break the task into phases and estimate each independently, then sum:
    the "high" estimate to account for failed builds, test loops, or
    re-reading files after edits.
 
-### 4.2 Calibration from history — a known limitation for Cowork
+### 4.2 Curated example/archetype library (cheap first-pass lookup)
+
+**Good instinct, with caveats.** A pre-built reference table is much
+cheaper than deriving an estimate from first principles every time,
+because the model only has to *classify and compare*, not reason through
+the full phase breakdown in §4.1. But a **live fetch of an arbitrary
+GitHub Pages URL** as the mechanism has real downsides worth designing
+around:
+
+| Concern | Why it matters |
+|---|---|
+| **Staleness** | Pricing/model/credit-rate changes silently invalidate a static page unless someone actively maintains it — directly undermines the "as accurate as possible" goal. |
+| **Latency & availability** | Adds a network round trip and an external dependency; needs a defined fallback if the page is unreachable. |
+| **Trust / prompt-injection surface** | Fetched page content is read as context by the model. If the page is edited by anyone other than a trusted maintainer (or compromised), it becomes an injection vector. Must be pinned to a specific, review-gated source — not freely user-editable. |
+| **Context cost of the page itself** | If the page is a long, unstructured example list, "comparing the prompt against it" still means reading the whole thing into context — which can erode the token savings if not kept small/structured. |
+| **Per-tenant nuance** | Generic examples may not reflect a specific customer's repo size, licensing, or environment — risk of misleading precision if presented as the estimate rather than an anchor/reference point. |
+
+**Recommended approach — hybrid, not a live arbitrary fetch:**
+
+1. **Ship a small, versioned lookup table with the skill** (e.g.
+   `examples.json`/`archetypes.json` alongside `pricing.json`), rather
+   than fetching a live external page on every call. This keeps it fast,
+   offline-safe, and free of injection risk, while still being far
+   cheaper to consult than re-deriving from §4.1 each time.
+2. **Classify, don't free-text-compare.** Define a small fixed set of task
+   archetypes (e.g. "single doc summary", "multi-file report synthesis",
+   "spreadsheet analysis", "cross-app workflow automation", "large
+   codebase-style repo operation") each with a known credit/token range.
+   Classifying the user's prompt into one of ~6–10 archetypes is a cheap
+   operation; free-form similarity matching against a large example list
+   is not.
+3. **Two-tier fallback:** use the archetype lookup as the fast first pass;
+   only fall through to the full phase-based breakdown (§4.1) when no
+   archetype match is confident, or when the task is unusually large/
+   ambiguous. Always disclose which path produced the number.
+4. **Feed it from the `/cost` skill idea (§4.3), not free crowdsourcing.**
+   If a `/cost`-style skill captures real completed-task costs, route
+   those into the example table through a **reviewed update process**
+   (e.g. a PR to the skill's own repo), not a live, publicly-editable
+   page. This turns the earlier open question about a `/cost` skill into
+   the actual data pipeline for keeping the lookup table accurate, while
+   keeping the trust boundary intact.
+5. **If a hosted page is still wanted** (e.g. for cross-tenant sharing or
+   easier non-engineering updates), fetch it from a **pinned, org-owned,
+   change-controlled source** (tagged release/commit, not `main`/live
+   HEAD), cache it for the session, and treat its content as data to
+   parse — never as instructions to follow.
+
+### 4.3 Calibration from history — a known limitation for Cowork
 
 **Important constraint discovered during design review:** unlike a coding-
 agent environment with its own queryable session-telemetry store, Cowork
@@ -119,7 +167,7 @@ This replaces any assumption that the skill can silently query a session-
 usage database the way a coding-agent tool (e.g. `session_store_sql`)
 might — that pattern does not apply to Cowork today.
 
-### 4.3 Pricing conversion
+### 4.4 Pricing conversion
 
 Maintain a small pricing config (per-model $/1K input tokens, $/1K output
 tokens, updated periodically) to convert the token range into a dollar
@@ -230,8 +278,12 @@ customer has no GitHub Copilot seats.)
 ## 9. High-Level Architecture (for future implementation)
 
 - `SKILL.md` — trigger description + workflow instructions (as above).
+- `archetypes.json` — versioned, PR-reviewed lookup table of task
+  archetypes with reference credit/token ranges (§4.2); the fast first
+  pass, checked before falling back to phase-based estimation.
 - `scripts/estimate.py` (or similar) — phase-based token calculator taking
-  task metadata + optional file list as input.
+  task metadata + optional file list as input; used when no archetype
+  match is confident.
 - `pricing.json` — per-model $/1K token rates, versioned/dated.
 - Memory lookup — reuse the existing Copilot memory system
   (`store_memory` / `vote_memory` equivalents) rather than building a new
@@ -247,7 +299,7 @@ customer has no GitHub Copilot seats.)
 
 - Does Cowork expose per-session token/cost telemetry we can query
   programmatically for calibration, or only after-the-fact totals?
-  **(Answered, see §4.2): no per-session API today — only tenant/admin
+  **(Answered, see §4.3): no per-session API today — only tenant/admin
   aggregate Credits reporting; per-session numbers only exist if a prior
   `/cost`-style skill already put them in the transcript.)**
 - Would it be worth building a lightweight `/cost` skill first, purely so
