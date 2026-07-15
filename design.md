@@ -4,17 +4,20 @@
 > Microsoft's agentic, multi-step "work on this for me" experience inside
 > M365 Copilot (distinct from a single-turn M365 Copilot Chat prompt, and
 > distinct from GitHub Copilot). Cowork sessions can run longer, touch more
-> files/content, and consume meaningfully more tokens than a normal Copilot
-> Chat turn, which is exactly why customers need an upfront cost signal.
+> files/content, and consume meaningfully more **Copilot Credits** than a
+> normal Copilot Chat turn, which is exactly why customers need an upfront
+> cost signal. This design intentionally estimates in **Copilot Credits**,
+> not dollars — see §4.4.
 
 ## 1. Purpose
 
-Give customers an upfront, honest estimate of the **token consumption / cost**
-a Cowork (M365 Copilot) task will incur before (or while) it runs, so they
-can decide whether to proceed as-is, narrow scope, split the work, or route
-part of it to a cheaper/simpler surface — e.g. a single M365 Copilot Chat
-prompt instead of a full Cowork session, or GitHub Copilot for code-specific
-sub-tasks — instead of running everything through Cowork.
+Give customers an upfront, honest estimate of the **Copilot Credit
+consumption** a Cowork (M365 Copilot) task will incur before (or while) it
+runs, so they can decide whether to proceed as-is, narrow scope, split the
+work, or route part of it to a cheaper/simpler surface — e.g. a single
+M365 Copilot Chat prompt instead of a full Cowork session, or GitHub
+Copilot for code-specific sub-tasks — instead of running everything
+through Cowork.
 
 The skill must be:
 - **As accurate as possible** given available signal (task text, attached
@@ -55,33 +58,56 @@ description: >
 
 ## 4. Estimation Methodology
 
-Produce a **range**, not a point estimate: **low / expected / high**, each
-broken into input tokens and output tokens, then converted to a cost range
-using the pricing table for the selected model(s).
+Produce a **range**, not a point estimate: **low / expected / high**,
+expressed in **Copilot Credits** — the actual unit Microsoft meters and
+shows in the tenant admin Credits report (§4.3 covers the underlying
+telemetry limitation). We deliberately do **not** convert to dollars by
+default (see §4.4): credit-to-dollar rates vary by contract, region, and
+prepaid pack discounts, none of which the skill can verify per-tenant, so
+converting would add a second, harder-to-keep-accurate layer on top of an
+already-approximate estimate for no real benefit to most customers.
 
-### 4.1 Phase-based token model
+### 4.1 Phase-based sizing model
+
+Microsoft doesn't publish a fixed token-to-credit formula — credit cost
+for a given interaction depends on the model selected, context volume,
+tools/plugins engaged, and runtime, decided at runtime by the platform.
+So this phase breakdown isn't used to compute credits directly; it's used
+to **size the task in relative terms** (roughly how much context, how
+many steps, how much output), which then does one of two things:
+(a) helps classify the task into an archetype (§4.2) with a known
+observed credit range, or (b) if no archetype fits, produces a rough
+credit range via a labeled, low-confidence heuristic multiplier (see the
+note at the end of this section) rather than a precise conversion.
 
 Break the task into phases and estimate each independently, then sum:
 
 1. **System & tool-schema overhead** — fixed cost per turn for the system
    prompt, tool definitions, and skill instructions currently loaded.
    (Roughly constant per model/product; calibrate from historical sessions.)
-2. **Context ingestion** — tokens for repo files, attachments, or search
+2. **Context ingestion** — size of repo files, attachments, or search
    results the agent must read to complete the task. Estimate via
-   `characters / ~4` per file, weighted by how much of a file is likely
-   relevant vs. skimmed.
+   `characters / ~4` per file as a relative-size proxy, weighted by how
+   much of a file is likely relevant vs. skimmed.
 3. **Conversation turns** — number of back-and-forth exchanges expected
    (clarifying questions, review cycles). Estimate low/expected/high counts
    based on task ambiguity.
 4. **Tool/agent invocations** — each tool call (grep, view, edit, shell,
-   sub-agent) has its own input+output token cost; multi-step or
-   multi-file tasks multiply this.
+   sub-agent) adds its own overhead; multi-step or multi-file tasks
+   multiply this.
 5. **Output generation** — code, documents, or explanations the agent must
-   produce; estimate by expected artifact size (e.g. "a design doc" ≈
-   1,500–3,000 tokens; "a full CRUD feature" ≈ 8,000–20,000 tokens output).
+   produce; estimate by expected artifact size (e.g. "a design doc" is
+   much smaller than "a full multi-file report or workflow automation").
 6. **Retries/iteration buffer** — a multiplier (e.g. 1.2x–2x) applied to
-   the "high" estimate to account for failed builds, test loops, or
+   the "high" estimate to account for failed steps, review cycles, or
    re-reading files after edits.
+
+**On converting this size estimate to a credit number without an
+archetype match:** be explicit in the output that this path has no
+observed grounding — it's a relative-size heuristic, not a measured
+credit range, and should carry a **Low** confidence label (§5) until real
+`/cost`-sourced data lets it be promoted into `archetypes.json`.
+
 
 ### 4.2 Curated example/archetype library (cheap first-pass lookup)
 
@@ -105,9 +131,9 @@ around:
 updated 2026-07-01): the **Upload a skill** flow accepts either a single
 `.md` file *or* a `.zip`/`.skill` archive with `SKILL.md` at its root plus
 companion files (limits: ≤10MB compressed, ≤50MB uncompressed, ≤100
-files). So bundling `archetypes.json`/`pricing.json` alongside `SKILL.md`
-in a `.zip`/`.skill` package is directly supported — no external hosting
-is required for this. Sharing works per-skill (private or specific org
+files). So bundling `archetypes.json` alongside `SKILL.md` in a
+`.zip`/`.skill` package is directly supported — no external hosting is
+required for this. Sharing works per-skill (private or specific org
 users) with a **re-share** action to push updates to everyone who has it,
 which also gives us a built-in update/versioning path for the lookup
 table over time.
@@ -115,22 +141,25 @@ table over time.
 **Recommended approach — bundle in the package itself, not a live fetch:**
 
 1. **Ship the lookup table as a companion file inside the `.zip`/`.skill`
-   package** (e.g. `archetypes.json` and `pricing.json` sitting next to
-   `SKILL.md` at the archive root or in a subfolder). This is fast,
-   offline-safe, avoids the injection/staleness/latency risks of fetching
-   an external page, and is a first-class supported pattern per the
-   upload docs above — no extra plumbing needed.
+   package** (e.g. `archetypes.json` sitting next to `SKILL.md` at the
+   archive root or in a subfolder), with **credit ranges, not tokens or
+   dollars**, as the recorded unit. This is fast, offline-safe, avoids
+   the injection/staleness/latency risks of fetching an external page,
+   and is a first-class supported pattern per the upload docs above — no
+   extra plumbing needed.
 2. **Classify, don't free-text-compare.** Define a small fixed set of task
    archetypes (e.g. "single doc summary", "multi-file report synthesis",
    "spreadsheet analysis", "cross-app workflow automation", "large
-   codebase-style repo operation") each with a known credit/token range.
-   Classifying the user's prompt into one of ~6–10 archetypes is a cheap
-   operation; free-form similarity matching against a large example list
-   is not.
+   codebase-style repo operation") each with a known **observed credit
+   range**. Classifying the user's prompt into one of ~6–10 archetypes is
+   a cheap operation; free-form similarity matching against a large
+   example list is not.
 3. **Two-tier fallback:** use the archetype lookup as the fast first pass;
    only fall through to the full phase-based breakdown (§4.1) when no
    archetype match is confident, or when the task is unusually large/
-   ambiguous. Always disclose which path produced the number.
+   ambiguous. Always disclose which path produced the number, and flag
+   the phase-based fallback's credit figure as a lower-confidence
+   heuristic (§4.1) since it isn't backed by an observed credit range.
 4. **Keep updates flowing through re-share, not live editing.** When the
    `/cost` skill (§4.3) or maintainer review produces better reference
    data, update `archetypes.json` in the package and use Cowork's
@@ -191,10 +220,26 @@ might — that pattern does not apply to Cowork today.
 
 ### 4.4 Pricing conversion
 
-Maintain a small pricing config (per-model $/1K input tokens, $/1K output
-tokens, updated periodically) to convert the token range into a dollar
-range. If the product/model mix is unknown, present token counts only and
-flag cost as "depends on model selection."
+**Default: stay in Copilot Credits, no dollar conversion.** Per user
+decision, the skill reports **Credits only** by default. Rationale:
+
+- Credits are the unit Microsoft itself meters and shows in the tenant
+  admin Credits report — reporting in the same unit means the customer
+  can directly cross-check the estimate against their own dashboard.
+- A credit-to-dollar rate depends on contract terms (list vs. negotiated
+  rate), region, and prepaid credit-pack discounts — none of which the
+  skill can know or verify per tenant. Adding a dollar layer would bolt a
+  second, harder-to-keep-accurate conversion onto an already-approximate
+  estimate, for accuracy the skill can't actually guarantee.
+- Removing the dollar step also removes the need to maintain a
+  `pricing.json` rate table at all — one less thing to go stale.
+
+**When a dollar figure might still be worth adding:** only if a specific
+customer provides their own known credit rate (e.g. "our contract prices
+credits at $X"), which the skill can multiply in in real time, clearly
+labeled as customer-provided rather than assumed. This should stay an
+explicit opt-in, not a default behavior, and doesn't require shipping any
+pricing data with the skill itself.
 
 ## 5. Transparency Requirements
 
@@ -273,29 +318,30 @@ Before presenting optimization suggestions, the skill must:
 ## 8. Output Format (example)
 
 ```
-## Estimated Cost — "Add OAuth login to the API"
+## Estimated Cost — "Prepare a quarterly report from last month's emails and calendar, and draft it in Word"
 
-| | Input tokens | Output tokens | Est. cost (model: X) |
-|---|---|---|---|
-| Low      | 18,000 | 4,000  | $0.31 |
-| Expected | 34,000 | 9,000  | $0.62 |
-| High     | 60,000 | 16,000 | $1.12 |
+| | Copilot Credits |
+|---|---|
+| Low      | 180  |
+| Expected | 340  |
+| High     | 600  |
 
-Confidence: Medium (based on 3 similar past sessions in this repo)
+Basis: Archetype match — "multi-file report synthesis" (§4.2)
+Confidence: Medium (archetype has 3 prior observed data points)
 
 ### What could change this
 - Number of review/clarification rounds with you (not yet known).
-- Whether the auth provider requires exploring unfamiliar SDK docs.
-- Any failing tests requiring debugging loops.
+- How much enterprise search is needed to find the source emails/files.
+- Whether the Word draft goes through multiple revision rounds.
 
 ### Ways to reduce cost
-- This includes a `design.md`-only phase — you could stop after review
-  before implementation to control spend.
-- The database migration piece is mechanical; consider a lighter model
-  for that sub-step.
+- If this is really "summarize last month" with no drafting needed, a
+  single M365 Copilot Chat prompt would be cheaper than a full Cowork
+  session.
 ```
-(GitHub Copilot suggestion omitted here because memory indicates the
-customer has no GitHub Copilot seats.)
+(No GitHub Copilot suggestion here since this task has no code component;
+if it did, and memory indicated the customer has no GitHub Copilot seats,
+that suggestion would be omitted entirely.)
 
 ## 9. High-Level Architecture (for future implementation)
 
@@ -303,17 +349,27 @@ customer has no GitHub Copilot seats.)
 Cowork" — `learn.microsoft.com/microsoft-365/copilot/cowork/
 cowork-customize`, updated 2026-07-01), Cowork's **Upload skill** flow
 accepts a `.zip`/`.skill` archive with `SKILL.md` at its root plus
-companion files (≤10MB compressed, ≤50MB uncompressed, ≤100 files). This
-skill should ship as such an archive:
+companion files (≤10MB compressed, ≤50MB uncompressed, ≤100 files). The
+companion **Use Copilot Cowork** page (`microsoft-365/copilot/cowork/
+use-cowork`, updated 2026-07-13) confirms companion files can include
+**scripts**: "Skills can also include up to 20 companion files (such as
+reference documents and scripts), with a total of 10 MB per skill" (that
+20-file/10MB figure applies to the OneDrive-authored path; the zip-upload
+path above has the looser 100-file/50MB limit). So a companion
+`estimate.py` is an explicitly supported file type. **Remaining open
+question:** the docs don't confirm whether Cowork *executes* a bundled
+script directly as a subprocess, or reads it as reference code it
+reimplements at runtime — behaviorally different, worth testing directly,
+but not a blocker either way since the logic still ships with the skill.
+
+This skill should ship as such an archive:
 
 ```
 cowork-cost-estimator-skill/
 ├── SKILL.md          (frontmatter: name + description, required)
-├── archetypes.json    (§4.2 lookup table)
-├── pricing.json       (§4.4 per-model rates)
-└── scripts/           (optional: only if the runtime supports invoking
-                         helper scripts; otherwise fold logic into
-                         SKILL.md instructions)
+├── archetypes.json    (§4.2 lookup table, credit ranges — see below)
+└── scripts/
+    └── estimate.py    (§4.1 phase-based calculator, used as fallback)
 ```
 
 Updates ship by editing the package and using Cowork's **re-share**
@@ -327,16 +383,19 @@ you trust," since a skill runs as instructions to the AI. This reinforces
 the whole point of bundling `archetypes.json` in the trusted, reviewed
 package is to avoid introducing exactly that kind of untrusted input.
 
+**Units — Copilot Credits, not dollars (by design choice, see §4.4).**
+`archetypes.json` and `estimate.py` output ranges in **Copilot Credits**
+only. There is no `pricing.json`/dollar-conversion file in the default
+package — see §4.4 for why, and for the narrow case where a dollar
+conversion could still be added.
+
 - `SKILL.md` — trigger description + workflow instructions (as above).
 - `archetypes.json` — versioned, PR-reviewed lookup table of task
-  archetypes with reference credit/token ranges (§4.2); the fast first
+  archetypes with reference **credit** ranges (§4.2); the fast first
   pass, checked before falling back to phase-based estimation.
-- `scripts/estimate.py` (or similar) — phase-based token calculator taking
-  task metadata + optional file list as input; used when no archetype
-  match is confident. **Open question:** confirm whether Cowork's skill
-  runtime can execute a companion script, or whether phase-based logic
-  needs to be expressed as instructions in `SKILL.md` itself instead.
-- `pricing.json` — per-model $/1K token rates, versioned/dated.
+- `scripts/estimate.py` — phase-based **credit** estimator taking task
+  metadata + optional file list as input; used when no archetype match
+  is confident.
 - Memory lookup — reuse the existing Copilot memory system
   (`store_memory` / `vote_memory` equivalents) rather than building a new
   store; the skill only *reads* memories to filter suggestions and *writes*
@@ -362,8 +421,12 @@ package is to avoid introducing exactly that kind of untrusted input.
   without over-scoping access to tenant-wide billing data?
 - Should the estimate be shown once at task start, or refreshed
   mid-session as scope becomes clearer?
-- Where should pricing data live so it stays current without the skill
-  needing an update each time rates change?
+- Does Cowork execute a bundled `scripts/estimate.py` directly, or only
+  read it as reference material it reimplements at runtime? (§9 — needs
+  hands-on testing, not just doc confirmation.)
+- Now that pricing is credits-only by default, how often does
+  `archetypes.json` realistically need re-sharing to stay accurate as
+  Microsoft's own credit-per-task behavior shifts over time?
 - Should the "use plain M365 Copilot Chat" / GitHub Copilot suggestions
   require confirmed licensing (via memory) before being shown at all, or
   is a conditional phrasing acceptable by default?
@@ -371,5 +434,7 @@ package is to avoid introducing exactly that kind of untrusted input.
 ## 11. Non-Goals
 
 - Not a hard cost cap or billing enforcement mechanism — purely advisory.
-- Not a guarantee of exact token counts — always a range with caveats.
-- Does not attempt to estimate wall-clock time, only token/cost.
+- Not a guarantee of exact credit counts — always a range with caveats.
+- Not a dollar-cost calculator by default — see §4.4 for the narrow,
+  opt-in exception.
+- Does not attempt to estimate wall-clock time, only Copilot Credits.
