@@ -100,13 +100,26 @@ around:
 | **Context cost of the page itself** | If the page is a long, unstructured example list, "comparing the prompt against it" still means reading the whole thing into context — which can erode the token savings if not kept small/structured. |
 | **Per-tenant nuance** | Generic examples may not reflect a specific customer's repo size, licensing, or environment — risk of misleading precision if presented as the estimate rather than an anchor/reference point. |
 
-**Recommended approach — hybrid, not a live arbitrary fetch:**
+**Confirmed via Microsoft Learn** ("Customize Copilot Cowork",
+`learn.microsoft.com/microsoft-365/copilot/cowork/cowork-customize`,
+updated 2026-07-01): the **Upload a skill** flow accepts either a single
+`.md` file *or* a `.zip`/`.skill` archive with `SKILL.md` at its root plus
+companion files (limits: ≤10MB compressed, ≤50MB uncompressed, ≤100
+files). So bundling `archetypes.json`/`pricing.json` alongside `SKILL.md`
+in a `.zip`/`.skill` package is directly supported — no external hosting
+is required for this. Sharing works per-skill (private or specific org
+users) with a **re-share** action to push updates to everyone who has it,
+which also gives us a built-in update/versioning path for the lookup
+table over time.
 
-1. **Ship a small, versioned lookup table with the skill** (e.g.
-   `examples.json`/`archetypes.json` alongside `pricing.json`), rather
-   than fetching a live external page on every call. This keeps it fast,
-   offline-safe, and free of injection risk, while still being far
-   cheaper to consult than re-deriving from §4.1 each time.
+**Recommended approach — bundle in the package itself, not a live fetch:**
+
+1. **Ship the lookup table as a companion file inside the `.zip`/`.skill`
+   package** (e.g. `archetypes.json` and `pricing.json` sitting next to
+   `SKILL.md` at the archive root or in a subfolder). This is fast,
+   offline-safe, avoids the injection/staleness/latency risks of fetching
+   an external page, and is a first-class supported pattern per the
+   upload docs above — no extra plumbing needed.
 2. **Classify, don't free-text-compare.** Define a small fixed set of task
    archetypes (e.g. "single doc summary", "multi-file report synthesis",
    "spreadsheet analysis", "cross-app workflow automation", "large
@@ -118,18 +131,27 @@ around:
    only fall through to the full phase-based breakdown (§4.1) when no
    archetype match is confident, or when the task is unusually large/
    ambiguous. Always disclose which path produced the number.
-4. **Feed it from the `/cost` skill idea (§4.3), not free crowdsourcing.**
+4. **Keep updates flowing through re-share, not live editing.** When the
+   `/cost` skill (§4.3) or maintainer review produces better reference
+   data, update `archetypes.json` in the package and use Cowork's
+   **re-share** action so everyone who has the skill gets the refreshed
+   table automatically — this replaces the need for any external hosting
+   or live fetch to keep the data current.
+5. **Feed it from the `/cost` skill idea (§4.3), not free crowdsourcing.**
    If a `/cost`-style skill captures real completed-task costs, route
-   those into the example table through a **reviewed update process**
-   (e.g. a PR to the skill's own repo), not a live, publicly-editable
-   page. This turns the earlier open question about a `/cost` skill into
-   the actual data pipeline for keeping the lookup table accurate, while
+   those into `archetypes.json` through a **reviewed update process**
+   before re-sharing the package, not a live, publicly-editable page.
+   This turns the earlier open question about a `/cost` skill into the
+   actual data pipeline for keeping the lookup table accurate, while
    keeping the trust boundary intact.
-5. **If a hosted page is still wanted** (e.g. for cross-tenant sharing or
-   easier non-engineering updates), fetch it from a **pinned, org-owned,
-   change-controlled source** (tagged release/commit, not `main`/live
-   HEAD), cache it for the session, and treat its content as data to
-   parse — never as instructions to follow.
+6. **A hosted external page is now the fallback, not the default** — only
+   worth it for scenarios the bundled-file approach doesn't cover (e.g.
+   sharing reference data across tenants outside the Share dialog's
+   org-user model, or updates too frequent to re-share manually). If
+   used, fetch from a **pinned, org-owned, change-controlled source**
+   (tagged release/commit, not `main`/live HEAD), cache it for the
+   session, and treat its content as data to parse — never as
+   instructions to follow.
 
 ### 4.3 Calibration from history — a known limitation for Cowork
 
@@ -277,13 +299,43 @@ customer has no GitHub Copilot seats.)
 
 ## 9. High-Level Architecture (for future implementation)
 
+**Packaging (confirmed):** per Microsoft Learn ("Customize Copilot
+Cowork" — `learn.microsoft.com/microsoft-365/copilot/cowork/
+cowork-customize`, updated 2026-07-01), Cowork's **Upload skill** flow
+accepts a `.zip`/`.skill` archive with `SKILL.md` at its root plus
+companion files (≤10MB compressed, ≤50MB uncompressed, ≤100 files). This
+skill should ship as such an archive:
+
+```
+cowork-cost-estimator-skill/
+├── SKILL.md          (frontmatter: name + description, required)
+├── archetypes.json    (§4.2 lookup table)
+├── pricing.json       (§4.4 per-model rates)
+└── scripts/           (optional: only if the runtime supports invoking
+                         helper scripts; otherwise fold logic into
+                         SKILL.md instructions)
+```
+
+Updates ship by editing the package and using Cowork's **re-share**
+action, which pushes the refreshed archive to everyone the skill was
+shared with — this is the update/versioning mechanism, no external
+hosting required for the common case.
+
+Note: Cowork explicitly warns users to "only upload skills from sources
+you trust," since a skill runs as instructions to the AI. This reinforces
+§4.2's stance against pulling in unreviewed external content at runtime —
+the whole point of bundling `archetypes.json` in the trusted, reviewed
+package is to avoid introducing exactly that kind of untrusted input.
+
 - `SKILL.md` — trigger description + workflow instructions (as above).
 - `archetypes.json` — versioned, PR-reviewed lookup table of task
   archetypes with reference credit/token ranges (§4.2); the fast first
   pass, checked before falling back to phase-based estimation.
 - `scripts/estimate.py` (or similar) — phase-based token calculator taking
   task metadata + optional file list as input; used when no archetype
-  match is confident.
+  match is confident. **Open question:** confirm whether Cowork's skill
+  runtime can execute a companion script, or whether phase-based logic
+  needs to be expressed as instructions in `SKILL.md` itself instead.
 - `pricing.json` — per-model $/1K token rates, versioned/dated.
 - Memory lookup — reuse the existing Copilot memory system
   (`store_memory` / `vote_memory` equivalents) rather than building a new
