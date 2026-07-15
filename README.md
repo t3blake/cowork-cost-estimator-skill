@@ -1,5 +1,17 @@
 # Cowork Cost Estimator Skill
 
+> **Disclaimer:** This is a proof-of-concept / modeling exercise, not a
+> production tool. It is intended for estimating and directional
+> planning only — not as a guaranteed or contractual cost figure. It is
+> provided with **no warranty or guarantee of accuracy** of any kind, and
+> is not an official Microsoft product or statement. Credit ranges,
+> archetypes, and heuristics in this repo are the author's own estimates
+> and may be wrong, outdated, or tenant-specific in ways this skill
+> cannot account for. **Only official Microsoft documentation and your
+> own tenant's Microsoft 365 admin center Credits report should be
+> treated as sources of truth** for actual Copilot Credit costs — use
+> this skill's output only as a rough, non-binding planning aid.
+
 A skill for **Cowork in M365 Copilot** that estimates the Copilot Credit
 cost of a task *before* you run it — with transparent caveats about what
 it can't know, and cost-optimization tips that respect your stored

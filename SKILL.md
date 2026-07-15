@@ -15,6 +15,12 @@ description: >
 Estimates the Copilot Credit cost of a Cowork task **before** committing
 to it, with transparent caveats and memory-aware cost-optimization tips.
 
+> **Disclaimer:** proof-of-concept / modeling aid, not a production tool.
+> No warranty or guarantee of accuracy — output is a rough, non-binding
+> planning estimate, not an official Microsoft figure. Treat only
+> official Microsoft documentation and the tenant's own Microsoft 365
+> admin center Credits report as sources of truth for actual cost.
+
 ## Hard requirement: keep this skill's own overhead low
 
 This skill must not cost more, in tokens/context, than the task it is

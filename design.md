@@ -1,5 +1,13 @@
 # Cowork Cost Estimator Skill — Design
 
+> **Disclaimer:** this repo is a proof-of-concept / modeling exercise,
+> not a production tool. Nothing here is guaranteed or warranted to be
+> accurate, and none of it is an official Microsoft statement or product.
+> Only official Microsoft documentation and a tenant's own Microsoft 365
+> admin center Credits report should be treated as sources of truth for
+> actual Copilot Credit costs — everything in this design is a
+> best-effort, non-binding estimate for planning purposes only.
+
 > **Terminology**: "Cowork" here refers to **Cowork in M365 Copilot** —
 > Microsoft's agentic, multi-step "work on this for me" experience inside
 > M365 Copilot (distinct from a single-turn M365 Copilot Chat prompt, and
