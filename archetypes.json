@@ -1,0 +1,78 @@
+{
+  "unit": "Copilot Credits",
+  "schema_note": "Ranges below are seed placeholders based on general public estimates of Copilot Cowork credit usage, NOT verified Microsoft data. Replace with real observed figures as they're gathered (e.g. via a /cost skill or lab testing), then re-share the skill package to push the update.",
+  "archetypes": [
+    {
+      "id": "doc_summary",
+      "label": "Single document summary or light edit (Word/Excel/PowerPoint/PDF)",
+      "keywords": ["summarize", "summary", "edit this doc", "clean up", "format", "single file", "quick edit"],
+      "credits": { "low": 20, "expected": 60, "high": 150 },
+      "confidence": "Low",
+      "notes": "One document, minimal back-and-forth, no cross-app work."
+    },
+    {
+      "id": "spreadsheet_analysis",
+      "label": "Spreadsheet data analysis, formulas, or chart building",
+      "keywords": ["excel", "spreadsheet", "formula", "pivot table", "chart", "analyze this data"],
+      "credits": { "low": 100, "expected": 250, "high": 450 },
+      "confidence": "Low",
+      "notes": "Scales up with row/column count and number of derived views requested."
+    },
+    {
+      "id": "enterprise_search_qa",
+      "label": "Enterprise search + question answering across org content",
+      "keywords": ["find", "search", "look up", "who owns", "where is", "catch me up"],
+      "credits": { "low": 40, "expected": 100, "high": 200 },
+      "confidence": "Low",
+      "notes": "Cost grows with number of sources/repositories searched."
+    },
+    {
+      "id": "meeting_prep",
+      "label": "Meeting prep, daily briefing, or 1:1 prep",
+      "keywords": ["prep for my meeting", "daily briefing", "1:1", "prepare for", "meeting intelligence"],
+      "credits": { "low": 30, "expected": 80, "high": 150 },
+      "confidence": "Low",
+      "notes": "Typically bounded by a single meeting/day's worth of context."
+    },
+    {
+      "id": "report_synthesis",
+      "label": "Multi-file report synthesis (emails/calendar/docs -> new document)",
+      "keywords": ["quarterly report", "status report", "weekly report", "compile", "synthesize", "write a report from"],
+      "credits": { "low": 150, "expected": 350, "high": 600 },
+      "confidence": "Low",
+      "notes": "Cost driven by how many source items must be gathered before drafting."
+    },
+    {
+      "id": "communications_draft",
+      "label": "Drafting communications, newsletters, or announcements",
+      "keywords": ["draft an email", "newsletter", "announcement", "communication plan"],
+      "credits": { "low": 40, "expected": 100, "high": 220 },
+      "confidence": "Low",
+      "notes": "Close to doc_summary in cost unless it requires gathering info from multiple sources first."
+    },
+    {
+      "id": "workflow_automation",
+      "label": "Cross-app workflow automation (multi-step, multiple apps/data sources)",
+      "keywords": ["organize my inbox", "schedule and notify", "set up a recurring", "automate", "workflow"],
+      "credits": { "low": 250, "expected": 500, "high": 900 },
+      "confidence": "Low",
+      "notes": "Cost scales with number of apps touched and number of approval-gated actions."
+    },
+    {
+      "id": "deep_research",
+      "label": "Deep research across many external/internal sources",
+      "keywords": ["research a company", "deep research", "in-depth analysis", "compile research on"],
+      "credits": { "low": 300, "expected": 700, "high": 1200 },
+      "confidence": "Low",
+      "notes": "Highest-variance archetype; scope of sources is often unknown up front."
+    },
+    {
+      "id": "bulk_or_org_wide",
+      "label": "Bulk or org-wide operation (many files, many recipients, or repeated across a large set)",
+      "keywords": ["all my files", "every document in", "across the org", "for every employee", "bulk"],
+      "credits": { "low": 500, "expected": 1200, "high": 2500 },
+      "confidence": "Low",
+      "notes": "Treat as a strong candidate for splitting into smaller batches; flag this explicitly in tips."
+    }
+  ]
+}

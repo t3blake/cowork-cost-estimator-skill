@@ -20,6 +20,7 @@ Copilot for code-specific sub-tasks — instead of running everything
 through Cowork.
 
 The skill must be:
+- **As Token efficient as possible** The estimate can't cost more than the work it's intended to estimate. it needs to be extremely lightweight and avoid going down rabbit holes that burn credits.
 - **As accurate as possible** given available signal (task text, attached
   files, repo size, model selected, historical session data).
 - **Transparent about what it cannot know** — it should never present a single
@@ -29,6 +30,15 @@ The skill must be:
   customer has already ruled out (e.g. "we don't have GitHub Copilot seats",
   "Cowork isn't enabled for our tenant"), and should persist newly stated
   constraints as memories for future estimates.
+- **Token/context efficient by design (hard requirement)** — the skill's
+  own overhead must never exceed the cost of the task it's estimating.
+  Concretely: prefer the cheap archetype lookup (§4.2) over open-ended
+  phase-based reasoning (§4.1); read reference files once, not per
+  candidate; don't open attachments in full just to size them; cap
+  clarifying questions at one, only if truly needed; keep the response
+  itself limited to the fixed output template (§8), no restated request,
+  no verbose reasoning trace. See `SKILL.md` in this repo for the
+  enforced instructions.
 
 ## 2. Trigger Conditions (SKILL.md front matter, for later implementation)
 
@@ -343,7 +353,14 @@ Confidence: Medium (archetype has 3 prior observed data points)
 if it did, and memory indicated the customer has no GitHub Copilot seats,
 that suggestion would be omitted entirely.)
 
-## 9. High-Level Architecture (for future implementation)
+## 9. High-Level Architecture (v0 implemented in this repo)
+
+A first testable version of this package now exists in this repo as
+`SKILL.md`, `archetypes.json`, and `scripts/estimate.py`, plus a packaged
+`cowork-cost-estimator-skill.zip` at the repo root ready for lab-testing
+via Cowork's **Upload skill** flow. Treat `archetypes.json`'s credit
+ranges as unverified seed placeholders until replaced with real numbers
+observed during lab testing.
 
 **Packaging (confirmed):** per Microsoft Learn ("Customize Copilot
 Cowork" — `learn.microsoft.com/microsoft-365/copilot/cowork/
