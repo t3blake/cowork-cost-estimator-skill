@@ -370,8 +370,29 @@ through memory (see §7). Candidate suggestions:
   iterating turn-by-turn, to avoid repeated full-context re-sends.
 - **Avoid redundant re-reads**: reference specific files/line ranges rather
   than asking the agent to re-scan a whole repo each turn.
-- **Reuse existing sessions/history**: continue an idle background agent
-  instead of starting a fresh session that re-loads full context.
+- **Keep session context matched to what the next step actually needs** —
+  this cuts both directions, and the skill should pick the direction that
+  applies rather than always defaulting one way:
+  - **Reuse** an existing/idle session if it already holds context the
+    next step needs (files already found, scope already established) —
+    restarting would just force re-deriving that.
+  - **Start fresh** if the current conversation only holds overhead the
+    next step doesn't need. This is our own skill's typical case: the
+    cost-estimate exchange itself doesn't help execution. **Hedged, not a
+    firm rule** — our only lab comparison of this (`results.md` vs.
+    `results2.md`) mixed session-freshness with an unrelated docx-js
+    library bug, so we cannot yet isolate how much (if anything) a fresh
+    session actually saves. State this uncertainty plainly whenever the
+    tip is given rather than presenting it as a proven saving.
+  - **If recommending a fresh session, always pair it with a short
+    carry-forward summary** (task + chosen approach/archetype + any
+    scope already decided) the customer can paste into the new session.
+    Lab evidence suggests **rework/re-planning, not the estimate step
+    itself, is the dominant real cost driver** (e.g. the docx-js
+    debugging spiral and repeated PPT font/QA iterations in `results.md`).
+    A restart that forces the next session to re-derive scope from
+    scratch could cost more than it saves; a restart paired with a
+    compact handoff note avoids that trap.
 
 ## 7. Memory-Aware Filtering (critical requirement)
 

@@ -97,6 +97,16 @@ estimating. Concretely:
    - Suggest stopping after a lower-cost phase (e.g. a plan/draft) before
      a more expensive execution phase, when the task naturally splits
      that way.
+   - **If the customer may execute in this same session after reading the
+     estimate:** suggest starting execution in a fresh session instead,
+     *but hedge it* — say plainly that we can't confirm how much (if
+     anything) this saves, since it hasn't been isolated from other
+     variables in testing. Pair the suggestion with a one-line
+     carry-forward summary (task + chosen archetype/approach + any scope
+     already settled) the customer can paste into the new session, so it
+     doesn't re-derive scope from scratch. Rework/re-planning, not the
+     estimate step, is the bigger real cost driver — a bare restart
+     without that handoff note can cost more than it saves.
 8. **Output using the Response format below only.** No commentary before
    or after it.
 
@@ -122,6 +132,7 @@ Confidence: <Low|Medium|High>
 ### Ways to reduce cost
 - <tip 1>
 - <tip 2>
+- <optional: fresh-session tip with hedge + "Carry forward: <task + approach in one line>", only if applicable>
 ```
 
 ## Files in this skill
